@@ -230,19 +230,21 @@ with tab1:
             )
             fig_pie.update_traces(textposition='inside', textinfo='percent+label')
             
+            # FIX: Transparent modebar background AND restored functionality
             fig_pie.update_layout(
                 showlegend=False, 
-                margin=dict(t=0, b=0, l=0, r=0), 
+                margin=dict(t=30, b=0, l=0, r=0), # Added top margin
                 paper_bgcolor="rgba(0,0,0,0)", 
-                plot_bgcolor="rgba(0,0,0,0)"
+                plot_bgcolor="rgba(0,0,0,0)",
+                modebar=dict(bgcolor='rgba(0,0,0,0)', color='white') 
             )
             
             display_name = selected_game.replace("_", " ")
             if len(display_name) > 15: display_name = display_name.replace(" ", "<br>")
             fig_pie.add_annotation(text=f"<b>{display_name}</b>", showarrow=False, font_size=18, font_color="white")
             
-            # HIDE MODEBAR HERE
-            st.plotly_chart(fig_pie, use_container_width=True, config={'displayModeBar': False})
+            # REMOVED: config={'displayModeBar': False} -> Default is True (hover)
+            st.plotly_chart(fig_pie, use_container_width=True)
 
         with c2:
             st.markdown("### Sentiment Trends Over Time")
@@ -253,13 +255,14 @@ with tab1:
                     color_discrete_map=COLOR_MAP
                 )
                 fig_area.update_layout(
-                    xaxis_title="", yaxis_title="Number of Reviews", margin=dict(t=0, b=0, l=0, r=0),
+                    xaxis_title="", yaxis_title="Number of Reviews", 
+                    margin=dict(t=30, b=0, l=0, r=0), # Added top margin to push chart down from modebar
                     paper_bgcolor="rgba(0,0,0,0)", 
                     plot_bgcolor="rgba(0,0,0,0)", 
-                    font=dict(color="white")
+                    font=dict(color="white"),
+                    modebar=dict(bgcolor='rgba(0,0,0,0)', color='white')
                 )
-                # HIDE MODEBAR HERE
-                st.plotly_chart(fig_area, use_container_width=True, config={'displayModeBar': False})
+                st.plotly_chart(fig_area, use_container_width=True)
             else:
                 st.warning("⚠️ No timestamp data found to build timeline.")
 
@@ -283,13 +286,13 @@ with tab1:
             )
             fig_bar.update_layout(
                 barmode='stack', xaxis_tickformat='.0%', yaxis_title="", xaxis_title="Percentage of Reviews",
-                margin=dict(t=0, b=0, l=0, r=0), 
+                margin=dict(t=30, b=0, l=0, r=0), # Added top margin
                 paper_bgcolor="rgba(0,0,0,0)", 
                 plot_bgcolor="rgba(0,0,0,0)", 
-                font=dict(color="white")
+                font=dict(color="white"),
+                modebar=dict(bgcolor='rgba(0,0,0,0)', color='white')
             )
-            # HIDE MODEBAR HERE
-            st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
+            st.plotly_chart(fig_bar, use_container_width=True)
             st.divider()
 
         st.markdown("### 📏 Review Length Analysis")
@@ -299,12 +302,13 @@ with tab1:
             color_discrete_map=COLOR_MAP, title="Do angry gamers write longer reviews?"
         )
         fig_box.update_layout(
+            margin=dict(t=50, b=0, l=0, r=0), # Larger top margin because this one has a title
             paper_bgcolor="rgba(0,0,0,0)", 
             plot_bgcolor="rgba(0,0,0,0)", 
-            font=dict(color="white")
+            font=dict(color="white"),
+            modebar=dict(bgcolor='rgba(0,0,0,0)', color='white')
         )
-        # HIDE MODEBAR HERE
-        st.plotly_chart(fig_box, use_container_width=True, config={'displayModeBar': False})
+        st.plotly_chart(fig_box, use_container_width=True)
     else:
         st.warning("No data available.")
 
@@ -390,10 +394,11 @@ with tab4:
             color="Accuracy", color_continuous_scale="Viridis"
         )
         fig.update_layout(
+            margin=dict(t=30, b=0, l=0, r=0), # Added top margin
             paper_bgcolor="rgba(0,0,0,0)", 
             plot_bgcolor="rgba(0,0,0,0)", 
-            font=dict(color="white")
+            font=dict(color="white"),
+            modebar=dict(bgcolor='rgba(0,0,0,0)', color='white')
         )
-        # HIDE MODEBAR HERE
-        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+        st.plotly_chart(fig, use_container_width=True)
         st.dataframe(df_bench)
