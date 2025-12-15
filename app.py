@@ -15,7 +15,6 @@ import re
 st.set_page_config(page_title="Steam Sentiment Intelligence", page_icon="🎮", layout="wide")
 
 # PATHS
-# Pulls data directly from Hugging Face to bypass GitHub size limits
 DATA_FILE = "https://huggingface.co/manchae86/steam-review-roberta/resolve/main/steam_reviews.csv"
 BENCHMARK_FILE = "./data/benchmark.csv"
 
@@ -231,19 +230,19 @@ with tab1:
             )
             fig_pie.update_traces(textposition='inside', textinfo='percent+label')
             
-            # FIX: Transparent modebar and background
             fig_pie.update_layout(
                 showlegend=False, 
                 margin=dict(t=0, b=0, l=0, r=0), 
                 paper_bgcolor="rgba(0,0,0,0)", 
-                plot_bgcolor="rgba(0,0,0,0)",
-                modebar=dict(bgcolor='rgba(0,0,0,0)', color='white') # <--- TRANSPARENT FIX
+                plot_bgcolor="rgba(0,0,0,0)"
             )
             
             display_name = selected_game.replace("_", " ")
             if len(display_name) > 15: display_name = display_name.replace(" ", "<br>")
             fig_pie.add_annotation(text=f"<b>{display_name}</b>", showarrow=False, font_size=18, font_color="white")
-            st.plotly_chart(fig_pie, use_container_width=True)
+            
+            # HIDE MODEBAR HERE
+            st.plotly_chart(fig_pie, use_container_width=True, config={'displayModeBar': False})
 
         with c2:
             st.markdown("### Sentiment Trends Over Time")
@@ -253,15 +252,14 @@ with tab1:
                     timeline_data, x='date', y='Count', color='Sentiment Label',
                     color_discrete_map=COLOR_MAP
                 )
-                # FIX: Transparent modebar and background
                 fig_area.update_layout(
                     xaxis_title="", yaxis_title="Number of Reviews", margin=dict(t=0, b=0, l=0, r=0),
                     paper_bgcolor="rgba(0,0,0,0)", 
                     plot_bgcolor="rgba(0,0,0,0)", 
-                    font=dict(color="white"),
-                    modebar=dict(bgcolor='rgba(0,0,0,0)', color='white') # <--- TRANSPARENT FIX
+                    font=dict(color="white")
                 )
-                st.plotly_chart(fig_area, use_container_width=True)
+                # HIDE MODEBAR HERE
+                st.plotly_chart(fig_area, use_container_width=True, config={'displayModeBar': False})
             else:
                 st.warning("⚠️ No timestamp data found to build timeline.")
 
@@ -283,16 +281,15 @@ with tab1:
                 orientation='h', color_discrete_map=COLOR_MAP, text_auto='.0%',
                 category_orders={'app_name': sorted_games_order}
             )
-            # FIX: Transparent modebar and background
             fig_bar.update_layout(
                 barmode='stack', xaxis_tickformat='.0%', yaxis_title="", xaxis_title="Percentage of Reviews",
                 margin=dict(t=0, b=0, l=0, r=0), 
                 paper_bgcolor="rgba(0,0,0,0)", 
                 plot_bgcolor="rgba(0,0,0,0)", 
-                font=dict(color="white"),
-                modebar=dict(bgcolor='rgba(0,0,0,0)', color='white') # <--- TRANSPARENT FIX
+                font=dict(color="white")
             )
-            st.plotly_chart(fig_bar, use_container_width=True)
+            # HIDE MODEBAR HERE
+            st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
             st.divider()
 
         st.markdown("### 📏 Review Length Analysis")
@@ -301,14 +298,13 @@ with tab1:
             df_filtered, x='Sentiment Label', y='length', color='Sentiment Label',
             color_discrete_map=COLOR_MAP, title="Do angry gamers write longer reviews?"
         )
-        # FIX: Transparent modebar and background
         fig_box.update_layout(
             paper_bgcolor="rgba(0,0,0,0)", 
             plot_bgcolor="rgba(0,0,0,0)", 
-            font=dict(color="white"),
-            modebar=dict(bgcolor='rgba(0,0,0,0)', color='white') # <--- TRANSPARENT FIX
+            font=dict(color="white")
         )
-        st.plotly_chart(fig_box, use_container_width=True)
+        # HIDE MODEBAR HERE
+        st.plotly_chart(fig_box, use_container_width=True, config={'displayModeBar': False})
     else:
         st.warning("No data available.")
 
@@ -393,12 +389,11 @@ with tab4:
             x="Accuracy", y="Model", orientation='h', text_auto='.2%',
             color="Accuracy", color_continuous_scale="Viridis"
         )
-        # FIX: Transparent modebar and background
         fig.update_layout(
             paper_bgcolor="rgba(0,0,0,0)", 
             plot_bgcolor="rgba(0,0,0,0)", 
-            font=dict(color="white"),
-            modebar=dict(bgcolor='rgba(0,0,0,0)', color='white') # <--- TRANSPARENT FIX
+            font=dict(color="white")
         )
-        st.plotly_chart(fig, use_container_width=True)
+        # HIDE MODEBAR HERE
+        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
         st.dataframe(df_bench)
