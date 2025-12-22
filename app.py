@@ -340,6 +340,98 @@ st.markdown("""
     .priority-high { border-color: #FF6B6B; }
     .priority-medium { border-color: #FFD93D; }
     .priority-low { border-color: #4ECDC4; }
+    
+    /* Loading Animations */
+    @keyframes shimmer {
+        0% { background-position: -200% 0; }
+        100% { background-position: 200% 0; }
+    }
+    
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .skeleton {
+        background: linear-gradient(90deg, #262730 25%, #3b3c46 50%, #262730 75%);
+        background-size: 200% 100%;
+        animation: shimmer 1.5s infinite;
+        border-radius: 8px;
+    }
+    
+    .skeleton-text {
+        height: 16px;
+        margin-bottom: 8px;
+        width: 80%;
+    }
+    
+    .skeleton-title {
+        height: 32px;
+        margin-bottom: 16px;
+        width: 60%;
+    }
+    
+    .skeleton-chart {
+        height: 200px;
+        width: 100%;
+    }
+    
+    .skeleton-card {
+        background: linear-gradient(90deg, #262730 25%, #3b3c46 50%, #262730 75%);
+        background-size: 200% 100%;
+        animation: shimmer 1.5s infinite;
+        padding: 20px;
+        border-radius: 12px;
+        margin-bottom: 15px;
+        height: 120px;
+    }
+    
+    .loading-pulse {
+        animation: pulse 1.5s ease-in-out infinite;
+    }
+    
+    .fade-in {
+        animation: fadeIn 0.5s ease-out forwards;
+    }
+    
+    /* Spinner */
+    .loading-spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid #3b3c46;
+        border-radius: 50%;
+        border-top-color: #66c0f4;
+        animation: spin 1s ease-in-out infinite;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    
+    /* Loading overlay */
+    .loading-overlay {
+        position: relative;
+    }
+    
+    .loading-overlay::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(23, 26, 33, 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 12px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -379,7 +471,33 @@ def load_model():
     except Exception as e:
         return None, None
 
-df = load_data()
+# --- SKELETON LOADER HELPERS ---
+def show_skeleton_card(height=120):
+    """Display a skeleton loading card."""
+    st.markdown(f'<div class="skeleton-card" style="height: {height}px;"></div>', unsafe_allow_html=True)
+
+def show_skeleton_text(lines=3, width="80%"):
+    """Display skeleton text lines."""
+    for i in range(lines):
+        w = f"{80 - i*10}%" if width == "80%" else width
+        st.markdown(f'<div class="skeleton skeleton-text" style="width: {w};"></div>', unsafe_allow_html=True)
+
+def show_skeleton_chart(height=200):
+    """Display a skeleton chart placeholder."""
+    st.markdown(f'<div class="skeleton skeleton-chart" style="height: {height}px;"></div>', unsafe_allow_html=True)
+
+def show_loading_spinner(text="Loading..."):
+    """Display a custom loading spinner with text."""
+    st.markdown(f'''
+    <div style="display: flex; align-items: center; gap: 10px; padding: 20px;">
+        <div class="loading-spinner"></div>
+        <span style="color: #b0b3b8;">{text}</span>
+    </div>
+    ''', unsafe_allow_html=True)
+
+# Load data with loading state
+with st.spinner("🔄 Loading Steam reviews data..."):
+    df = load_data()
 
 # ==========================================
 # 3. SIDEBAR CONTROL PANEL
@@ -605,7 +723,7 @@ with tab3:
                 percentage = (count / len(df_filtered)) * 100 if len(df_filtered) > 0 else 0
                 color = ISSUE_TAXONOMY[category]["color"]
                 st.markdown(f"""
-                <div class="insight-card" style="border-top: 3px solid {color};">
+                <div class="insight-card fade-in" style="border-top: 3px solid {color}; animation-delay: {idx * 0.1}s;">
                     <div class="insight-header">{category}</div>
                     <div class="insight-value" style="color: {color};">{percentage:.1f}%</div>
                     <div style="color: #666; font-size: 12px;">{count:,} mentions</div>
@@ -830,18 +948,19 @@ with tab4:
         
         with col2:
             if analyze and text:
-                inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=256)
-                with torch.no_grad():
-                    logits = model(**inputs).logits
-                probs = F.softmax(logits, dim=-1)
-                score = torch.argmax(probs, dim=-1).item()
-                confidence = probs[0][score].item()
+                with st.spinner("🤖 Analyzing sentiment..."):
+                    inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=256)
+                    with torch.no_grad():
+                        logits = model(**inputs).logits
+                    probs = F.softmax(logits, dim=-1)
+                    score = torch.argmax(probs, dim=-1).item()
+                    confidence = probs[0][score].item()
                 
                 labels = {0: ("Dissatisfied", "🔴"), 1: ("Neutral", "⚪"), 2: ("Satisfied", "🟢")}
                 label_txt, icon = labels[score]
                 
                 st.markdown(f"""
-                <div class="result-card">
+                <div class="result-card fade-in">
                     <h3 style="color:#b0b3b8; margin:0;">Prediction</h3>
                     <h1 style="font-size: 42px; margin: 10px 0;">{icon}</h1>
                     <h2 style="color: white;">{label_txt}</h2>
