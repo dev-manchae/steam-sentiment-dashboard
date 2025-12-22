@@ -157,6 +157,75 @@ def calculate_priority_matrix(issue_counts, df):
     
     return pd.DataFrame(matrix_data)
 
+def calculate_benchmark(df_game, df_all):
+    """Calculate how a game compares to the overall average for each issue category."""
+    game_counts, _ = extract_issues(df_game)
+    all_counts, _ = extract_issues(df_all)
+    
+    benchmark_data = []
+    total_game = len(df_game)
+    total_all = len(df_all)
+    
+    for category in ISSUE_TAXONOMY.keys():
+        game_pct = (game_counts[category] / total_game * 100) if total_game > 0 else 0
+        all_pct = (all_counts[category] / total_all * 100) if total_all > 0 else 0
+        diff = game_pct - all_pct
+        
+        benchmark_data.append({
+            "Category": category,
+            "This Game": game_pct,
+            "All Games Avg": all_pct,
+            "Difference": diff,
+            "Status": "🟢 Better" if diff < -2 else ("🔴 Worse" if diff > 2 else "⚪ Similar"),
+            "Color": ISSUE_TAXONOMY[category]["color"]
+        })
+    
+    return pd.DataFrame(benchmark_data)
+
+def calculate_issue_trends(df, category):
+    """Calculate issue mentions over time for trend analysis."""
+    if 'date' not in df.columns or df['date'].isna().all():
+        return None
+    
+    keywords = ISSUE_TAXONOMY[category]["keywords"]
+    df_copy = df.copy()
+    df_copy['has_issue'] = df_copy['clean_text'].str.lower().str.contains('|'.join(keywords), na=False)
+    
+    df_copy['month'] = df_copy['date'].dt.to_period('M')
+    monthly = df_copy.groupby('month').agg({
+        'has_issue': 'sum',
+        'clean_text': 'count'
+    }).reset_index()
+    monthly.columns = ['Month', 'Issue Count', 'Total Reviews']
+    monthly['Issue Rate'] = (monthly['Issue Count'] / monthly['Total Reviews'] * 100).round(1)
+    monthly['Month'] = monthly['Month'].astype(str)
+    
+    return monthly
+
+def get_highlighted_quotes(df, category, n=5):
+    """Get the most representative quotes for a category with sentiment context."""
+    keywords = ISSUE_TAXONOMY[category]["keywords"]
+    mask = df['clean_text'].str.lower().str.contains('|'.join(keywords), na=False)
+    subset = df[mask].copy()
+    
+    if subset.empty:
+        return []
+    
+    subset = subset.sort_values('sentiment', ascending=True)
+    quotes = []
+    for _, row in subset.head(n).iterrows():
+        text = str(row.get('clean_text', ''))[:250]
+        sentiment = row.get('sentiment', 1)
+        sentiment_label = {0: "😡 Dissatisfied", 1: "😐 Neutral", 2: "😊 Satisfied"}.get(sentiment, "Unknown")
+        keyword_matches = sum(1 for kw in keywords if kw in text.lower())
+        quotes.append({
+            "text": text,
+            "sentiment": sentiment_label,
+            "relevance": keyword_matches,
+            "color": "#FF5252" if sentiment == 0 else ("#FFB74D" if sentiment == 1 else "#4DB6AC")
+        })
+    return quotes
+
 # ==========================================
 # 1. CUSTOM CSS (BACKGROUND & UI)
 # ==========================================
@@ -367,7 +436,16 @@ with st.sidebar:
 st.markdown('<div class="main-title">🎮 Steam Sentiment Intelligence</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="sub-header">Deep learning analysis for <b style="color: #66c0f4;">{selected_game}</b> using RoBERTa transformers.</div>', unsafe_allow_html=True)
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["Analytics Dashboard", "Topic Clouds", "Developer Insights", "Live AI Lab", "Model Benchmarks"])
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+    "📊 Dashboard", 
+    "☁️ Topic Clouds", 
+    "🔍 Dev Insights", 
+    "🤖 AI Lab", 
+    "🏆 Benchmarks",
+    "⚔️ Compare Games",
+    "🔮 Predictor",
+    "📰 Explorer"
+])
 
 COLOR_MAP = {
     "Satisfied": "#4DB6AC",
@@ -627,20 +705,113 @@ with tab3:
         
         st.divider()
         
-        # --- SAMPLE REVIEWS ---
-        st.markdown("### 📝 Sample Feedback by Category")
+        # --- COMPETITIVE BENCHMARKING ---
+        if selected_game != "All Games" and df is not None:
+            st.markdown("### 📊 Competitive Benchmarking")
+            st.markdown(f"*How does **{selected_game}** compare to the industry average?*")
+            
+            benchmark_df = calculate_benchmark(df_filtered, df)
+            
+            if not benchmark_df.empty:
+                # Create benchmark visualization
+                fig_bench = px.bar(
+                    benchmark_df,
+                    x="Category",
+                    y=["This Game", "All Games Avg"],
+                    barmode="group",
+                    color_discrete_sequence=["#66c0f4", "#4c4c4c"],
+                    text_auto='.1f'
+                )
+                fig_bench.update_layout(
+                    xaxis_title="",
+                    yaxis_title="Issue Mention Rate (%)",
+                    margin=dict(t=30, b=0, l=0, r=0),
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    font=dict(color="white"),
+                    modebar=dict(bgcolor='rgba(0,0,0,0)', color='white'),
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                )
+                st.plotly_chart(fig_bench, use_container_width=True)
+                
+                # Status summary
+                bench_cols = st.columns(4)
+                for idx, row in benchmark_df.iterrows():
+                    with bench_cols[idx]:
+                        diff_text = f"{row['Difference']:+.1f}%" if row['Difference'] != 0 else "0%"
+                        st.markdown(f"""
+                        <div style="text-align: center; padding: 10px;">
+                            <div style="font-size: 24px;">{row['Status']}</div>
+                            <div style="color: #b0b3b8; font-size: 12px;">{diff_text} vs avg</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+            
+            st.divider()
         
-        selected_category = st.selectbox("Select Issue Category:", list(ISSUE_TAXONOMY.keys()))
+        # --- ISSUE TREND OVER TIME ---
+        st.markdown("### 📈 Issue Trend Analysis")
         
-        if issue_reviews.get(selected_category):
-            for i, review in enumerate(issue_reviews[selected_category], 1):
+        trend_category = st.selectbox("Select category to analyze:", list(ISSUE_TAXONOMY.keys()), key="trend_cat")
+        
+        trend_data = calculate_issue_trends(df_filtered, trend_category)
+        
+        if trend_data is not None and len(trend_data) > 1:
+            fig_trend = px.line(
+                trend_data,
+                x="Month",
+                y="Issue Rate",
+                markers=True,
+                color_discrete_sequence=[ISSUE_TAXONOMY[trend_category]["color"]]
+            )
+            fig_trend.update_layout(
+                xaxis_title="",
+                yaxis_title="Issue Rate (%)",
+                margin=dict(t=30, b=0, l=0, r=0),
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(color="white"),
+                modebar=dict(bgcolor='rgba(0,0,0,0)', color='white')
+            )
+            st.plotly_chart(fig_trend, use_container_width=True)
+            
+            # Trend insight
+            if len(trend_data) >= 2:
+                first_rate = trend_data.iloc[0]['Issue Rate']
+                last_rate = trend_data.iloc[-1]['Issue Rate']
+                change = last_rate - first_rate
+                if change > 2:
+                    st.warning(f"⚠️ **Trending Up:** {trend_category} issues increased by {change:.1f}% over the period")
+                elif change < -2:
+                    st.success(f"✅ **Improving:** {trend_category} issues decreased by {abs(change):.1f}% over the period")
+                else:
+                    st.info(f"📊 **Stable:** {trend_category} issues remained relatively constant")
+        else:
+            st.info("📅 Not enough time-series data available for trend analysis.")
+        
+        st.divider()
+        
+        # --- HIGHLIGHTED PLAYER QUOTES ---
+        st.markdown("### 💬 Voice of the Player")
+        st.markdown("*Most representative feedback from players*")
+        
+        quote_category = st.selectbox("Select issue category:", list(ISSUE_TAXONOMY.keys()), key="quote_cat")
+        
+        quotes = get_highlighted_quotes(df_filtered, quote_category, n=5)
+        
+        if quotes:
+            for i, quote in enumerate(quotes, 1):
                 st.markdown(f"""
-                <div style="background-color: #1e1f26; padding: 12px; border-radius: 8px; margin-bottom: 8px; border-left: 3px solid {ISSUE_TAXONOMY[selected_category]['color']};">
-                    <span style="color: #666;">#{i}</span> "{review}..."
+                <div style="background: linear-gradient(135deg, #1e1f26 0%, #262730 100%); padding: 16px; border-radius: 12px; margin-bottom: 12px; border-left: 4px solid {quote['color']};">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                        <span style="color: #666; font-size: 12px;">Quote #{i}</span>
+                        <span style="font-size: 12px; padding: 2px 8px; border-radius: 4px; background-color: rgba(255,255,255,0.1);">{quote['sentiment']}</span>
+                    </div>
+                    <div style="color: #e0e0e0; font-style: italic;">"{quote['text']}..."</div>
+                    <div style="color: #666; font-size: 11px; margin-top: 8px;">🔑 {quote['relevance']} keyword match(es)</div>
                 </div>
                 """, unsafe_allow_html=True)
         else:
-            st.info(f"No reviews found matching {selected_category} keywords.")
+            st.info(f"No reviews found matching {quote_category} keywords.")
     else:
         st.warning("No data available for analysis.")
 
@@ -704,3 +875,318 @@ with tab5:
         )
         st.plotly_chart(fig, use_container_width=True)
         st.dataframe(df_bench)
+
+# --- TAB 6: GAME COMPARISON LAB ---
+with tab6:
+    st.subheader("⚔️ Game Comparison Lab")
+    st.markdown("*Compare sentiment and issues across multiple games*")
+    
+    if df is not None:
+        game_list_compare = df['app_name'].unique().tolist()
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            game_a = st.selectbox("Select Game A:", game_list_compare, key="compare_a")
+        with col2:
+            game_b = st.selectbox("Select Game B:", [g for g in game_list_compare if g != game_a], key="compare_b")
+        
+        if game_a and game_b:
+            df_a = df[df['app_name'] == game_a]
+            df_b = df[df['app_name'] == game_b]
+            
+            st.divider()
+            
+            # Sentiment comparison
+            st.markdown("### 📊 Sentiment Distribution Comparison")
+            
+            comp_cols = st.columns(2)
+            
+            with comp_cols[0]:
+                st.markdown(f"**{game_a}**")
+                sat_a = (df_a['sentiment'] == 2).mean() * 100
+                neu_a = (df_a['sentiment'] == 1).mean() * 100
+                dis_a = (df_a['sentiment'] == 0).mean() * 100
+                
+                fig_a = px.pie(
+                    values=[sat_a, neu_a, dis_a],
+                    names=['Satisfied', 'Neutral', 'Dissatisfied'],
+                    color_discrete_sequence=['#5DBF82', '#F5E85C', '#E07B53'],
+                    hole=0.5
+                )
+                fig_a.update_layout(
+                    showlegend=False,
+                    margin=dict(t=0, b=0, l=0, r=0),
+                    paper_bgcolor="rgba(0,0,0,0)"
+                )
+                st.plotly_chart(fig_a, use_container_width=True)
+                st.metric("Satisfaction Rate", f"{sat_a:.1f}%", f"{len(df_a):,} reviews")
+            
+            with comp_cols[1]:
+                st.markdown(f"**{game_b}**")
+                sat_b = (df_b['sentiment'] == 2).mean() * 100
+                neu_b = (df_b['sentiment'] == 1).mean() * 100
+                dis_b = (df_b['sentiment'] == 0).mean() * 100
+                
+                fig_b = px.pie(
+                    values=[sat_b, neu_b, dis_b],
+                    names=['Satisfied', 'Neutral', 'Dissatisfied'],
+                    color_discrete_sequence=['#5DBF82', '#F5E85C', '#E07B53'],
+                    hole=0.5
+                )
+                fig_b.update_layout(
+                    showlegend=False,
+                    margin=dict(t=0, b=0, l=0, r=0),
+                    paper_bgcolor="rgba(0,0,0,0)"
+                )
+                st.plotly_chart(fig_b, use_container_width=True)
+                st.metric("Satisfaction Rate", f"{sat_b:.1f}%", f"{len(df_b):,} reviews")
+            
+            st.divider()
+            
+            # Issue comparison
+            st.markdown("### 🔍 Issue Category Comparison")
+            
+            issues_a, _ = extract_issues(df_a)
+            issues_b, _ = extract_issues(df_b)
+            
+            compare_data = []
+            for cat in ISSUE_TAXONOMY.keys():
+                pct_a = (issues_a[cat] / len(df_a) * 100) if len(df_a) > 0 else 0
+                pct_b = (issues_b[cat] / len(df_b) * 100) if len(df_b) > 0 else 0
+                compare_data.append({"Category": cat, "Game": game_a, "Issue Rate": pct_a})
+                compare_data.append({"Category": cat, "Game": game_b, "Issue Rate": pct_b})
+            
+            compare_df = pd.DataFrame(compare_data)
+            
+            fig_compare = px.bar(
+                compare_df,
+                x="Category",
+                y="Issue Rate",
+                color="Game",
+                barmode="group",
+                color_discrete_sequence=["#E07B53", "#6B9DD8"]
+            )
+            fig_compare.update_layout(
+                margin=dict(t=30, b=0, l=0, r=0),
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(color="white"),
+                yaxis_title="Issue Mention Rate (%)"
+            )
+            st.plotly_chart(fig_compare, use_container_width=True)
+            
+            # Winner summary
+            st.divider()
+            st.markdown("### 🏆 Comparison Summary")
+            
+            winner_sat = game_a if sat_a > sat_b else game_b
+            diff_sat = abs(sat_a - sat_b)
+            
+            st.markdown(f"""
+            <div class="insight-card" style="border-left: 4px solid #5DBF82;">
+                <strong>Satisfaction Winner:</strong> <span style="color: #5DBF82;">{winner_sat}</span><br>
+                <span style="color: var(--muted-foreground);">Leading by {diff_sat:.1f} percentage points</span>
+            </div>
+            """, unsafe_allow_html=True)
+    else:
+        st.warning("No data available for comparison.")
+
+# --- TAB 7: SENTIMENT PREDICTOR ---
+with tab7:
+    st.subheader("🔮 Sentiment Predictor")
+    st.markdown("*Predict likely sentiment based on game features and keywords*")
+    
+    if df is not None:
+        st.markdown("### Enter game characteristics to predict sentiment:")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            has_multiplayer = st.checkbox("Has Multiplayer", value=False)
+            has_mtx = st.checkbox("Has Microtransactions", value=False)
+            is_early_access = st.checkbox("Early Access", value=False)
+            has_dlc = st.checkbox("Has DLC", value=False)
+        
+        with col2:
+            genre = st.selectbox("Primary Genre:", ["Action", "RPG", "Strategy", "Simulation", "Indie", "Adventure", "Sports"])
+            price_range = st.selectbox("Price Range:", ["Free-to-Play", "Under $10", "$10-$30", "$30-$60", "Over $60"])
+        
+        keywords_input = st.text_input("Key features (comma-separated):", placeholder="e.g., open world, story-driven, roguelike")
+        
+        if st.button("🔮 Predict Sentiment", type="primary", use_container_width=True):
+            # Simple heuristic-based prediction model
+            base_satisfaction = 65.0  # Average baseline
+            
+            # Adjust based on features
+            if has_multiplayer:
+                base_satisfaction += 2  # Slight boost
+            if has_mtx:
+                base_satisfaction -= 8  # Negative impact
+            if is_early_access:
+                base_satisfaction -= 5  # Early access penalty
+            if has_dlc:
+                base_satisfaction -= 2  # Slight concern about DLC
+            
+            # Genre adjustments (based on typical Steam patterns)
+            genre_adj = {"Indie": 5, "RPG": 3, "Strategy": 2, "Action": 0, "Simulation": 1, "Adventure": 2, "Sports": -3}
+            base_satisfaction += genre_adj.get(genre, 0)
+            
+            # Price adjustments
+            price_adj = {"Free-to-Play": -5, "Under $10": 5, "$10-$30": 3, "$30-$60": 0, "Over $60": -5}
+            base_satisfaction += price_adj.get(price_range, 0)
+            
+            # Keyword analysis
+            if keywords_input:
+                positive_keywords = ["story", "beautiful", "fun", "polish", "quality", "innovative"]
+                negative_keywords = ["grind", "bug", "broken", "expensive", "p2w", "repetitive"]
+                
+                keywords = [k.strip().lower() for k in keywords_input.split(",")]
+                for kw in keywords:
+                    if any(pk in kw for pk in positive_keywords):
+                        base_satisfaction += 3
+                    if any(nk in kw for nk in negative_keywords):
+                        base_satisfaction -= 5
+            
+            # Clamp to valid range
+            predicted_sat = max(min(base_satisfaction, 95), 20)
+            predicted_neu = min(25, 100 - predicted_sat)
+            predicted_dis = 100 - predicted_sat - predicted_neu
+            
+            st.divider()
+            st.markdown("### 📊 Predicted Sentiment Breakdown")
+            
+            pred_cols = st.columns(3)
+            with pred_cols[0]:
+                st.markdown(f"""
+                <div class="insight-card" style="border-top: 3px solid #5DBF82; text-align: center;">
+                    <div style="font-size: 36px;">🟢</div>
+                    <div class="insight-value" style="color: #5DBF82;">{predicted_sat:.0f}%</div>
+                    <div class="insight-header">SATISFIED</div>
+                </div>
+                """, unsafe_allow_html=True)
+            with pred_cols[1]:
+                st.markdown(f"""
+                <div class="insight-card" style="border-top: 3px solid #F5E85C; text-align: center;">
+                    <div style="font-size: 36px;">⚪</div>
+                    <div class="insight-value" style="color: #F5E85C;">{predicted_neu:.0f}%</div>
+                    <div class="insight-header">NEUTRAL</div>
+                </div>
+                """, unsafe_allow_html=True)
+            with pred_cols[2]:
+                st.markdown(f"""
+                <div class="insight-card" style="border-top: 3px solid #E07B53; text-align: center;">
+                    <div style="font-size: 36px;">🔴</div>
+                    <div class="insight-value" style="color: #E07B53;">{predicted_dis:.0f}%</div>
+                    <div class="insight-header">DISSATISFIED</div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            # Risk factors
+            st.divider()
+            st.markdown("### ⚠️ Risk Factors Detected")
+            risks = []
+            if has_mtx:
+                risks.append("💰 Microtransactions often receive negative sentiment")
+            if is_early_access:
+                risks.append("🚧 Early Access games face higher scrutiny for bugs")
+            if price_range == "Over $60":
+                risks.append("💵 Premium pricing increases expectations")
+            if has_mtx and price_range not in ["Free-to-Play", "Under $10"]:
+                risks.append("🔴 Paid game with MTX is a high-risk combination")
+            
+            if risks:
+                for risk in risks:
+                    st.warning(risk)
+            else:
+                st.success("✅ No major risk factors detected!")
+    else:
+        st.warning("No data available.")
+
+# --- TAB 8: REVIEW EXPLORER ---
+with tab8:
+    st.subheader("📰 Review Explorer")
+    st.markdown("*Search and filter player reviews*")
+    
+    if df is not None:
+        # Filters
+        filter_cols = st.columns([2, 1, 1, 1])
+        
+        with filter_cols[0]:
+            search_query = st.text_input("🔍 Search reviews:", placeholder="Enter keywords...")
+        
+        with filter_cols[1]:
+            sentiment_filter = st.selectbox("Sentiment:", ["All", "Satisfied", "Neutral", "Dissatisfied"])
+        
+        with filter_cols[2]:
+            game_filter = st.selectbox("Game:", ["All Games"] + df['app_name'].unique().tolist(), key="explorer_game")
+        
+        with filter_cols[3]:
+            sort_by = st.selectbox("Sort by:", ["Newest", "Oldest", "Longest", "Shortest"])
+        
+        # Apply filters
+        filtered_df = df.copy()
+        
+        if search_query:
+            filtered_df = filtered_df[filtered_df['clean_text'].str.contains(search_query, case=False, na=False)]
+        
+        if sentiment_filter != "All":
+            sent_map = {"Satisfied": 2, "Neutral": 1, "Dissatisfied": 0}
+            filtered_df = filtered_df[filtered_df['sentiment'] == sent_map[sentiment_filter]]
+        
+        if game_filter != "All Games":
+            filtered_df = filtered_df[filtered_df['app_name'] == game_filter]
+        
+        # Add length column for sorting
+        filtered_df['text_length'] = filtered_df['clean_text'].astype(str).apply(len)
+        
+        # Sort
+        if sort_by == "Newest" and 'date' in filtered_df.columns:
+            filtered_df = filtered_df.sort_values('date', ascending=False)
+        elif sort_by == "Oldest" and 'date' in filtered_df.columns:
+            filtered_df = filtered_df.sort_values('date', ascending=True)
+        elif sort_by == "Longest":
+            filtered_df = filtered_df.sort_values('text_length', ascending=False)
+        elif sort_by == "Shortest":
+            filtered_df = filtered_df.sort_values('text_length', ascending=True)
+        
+        st.divider()
+        st.markdown(f"**Found {len(filtered_df):,} reviews**")
+        
+        # Pagination
+        reviews_per_page = 10
+        total_pages = max(1, (len(filtered_df) - 1) // reviews_per_page + 1)
+        page = st.number_input("Page", min_value=1, max_value=total_pages, value=1)
+        
+        start_idx = (page - 1) * reviews_per_page
+        end_idx = start_idx + reviews_per_page
+        
+        # Display reviews
+        for idx, row in filtered_df.iloc[start_idx:end_idx].iterrows():
+            sent = row.get('sentiment', 1)
+            sent_emoji = {0: "🔴", 1: "⚪", 2: "🟢"}.get(sent, "⚪")
+            sent_color = {0: "#E07B53", 1: "#F5E85C", 2: "#5DBF82"}.get(sent, "#F5E85C")
+            text = str(row.get('clean_text', ''))[:500]
+            game = row.get('app_name', 'Unknown')
+            
+            st.markdown(f"""
+            <div class="insight-card" style="border-left: 4px solid {sent_color};">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <span style="font-size: 12px; color: var(--muted-foreground);">🎮 {game}</span>
+                    <span>{sent_emoji}</span>
+                </div>
+                <div style="color: var(--foreground);">{text}{'...' if len(str(row.get('clean_text', ''))) > 500 else ''}</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # Export option
+        st.divider()
+        if st.button("📥 Export Filtered Reviews to CSV"):
+            csv = filtered_df[['app_name', 'clean_text', 'sentiment']].to_csv(index=False)
+            st.download_button(
+                label="Download CSV",
+                data=csv,
+                file_name="filtered_reviews.csv",
+                mime="text/csv"
+            )
+    else:
+        st.warning("No data available.")
