@@ -21,20 +21,28 @@
 |---------|-------------|
 | 📊 **Analytics Dashboard** | Interactive visualizations including sentiment distribution, trends over time, and game leaderboards |
 | ☁️ **Topic Word Clouds** | Dynamic word clouds for satisfied vs. dissatisfied reviews with customizable settings |
-| 🤖 **Live AI Lab** | Real-time sentiment prediction using your own custom text input |
+| 🔍 **Developer Insights** | AI-powered issue categorization, priority matrix, benchmarking, trend analysis, and actionable recommendations |
+| 🤖 **Live AI Lab** | Real-time sentiment prediction using your own custom text input with loading animations |
 | 🏆 **Model Benchmarks** | Performance comparison against other NLP models (SVM, VADER, Naive Bayes) |
-| 🎨 **Steam-themed UI** | Beautiful dark theme inspired by Steam's design language |
+| ⚔️ **Game Comparison** | Side-by-side comparison of sentiment and issues across multiple games |
+| 🔮 **Sentiment Predictor** | Predict likely sentiment based on game features, genre, and pricing |
+| 📰 **Review Explorer** | Search, filter, and export player reviews with pagination |
+| 🎨 **Steam-themed UI** | Beautiful dark theme with smooth loading animations and transitions |
 
 ---
 
 ## 🖼️ Demo
 
-The dashboard includes four main tabs:
+The dashboard includes **8 main tabs**:
 
-1. **Analytics Dashboard** - Pie charts, area charts, box plots, and leaderboards
-2. **Topic Clouds** - Word frequency visualizations by sentiment
-3. **Live AI Lab** - Test the model with custom game reviews
-4. **Model Benchmarks** - Compare RoBERTa against baseline models
+1. **📊 Dashboard** - Pie charts, area charts, box plots, and leaderboards
+2. **☁️ Topic Clouds** - Word frequency visualizations by sentiment
+3. **🔍 Dev Insights** - Developer intelligence with issue categorization and recommendations
+4. **🤖 AI Lab** - Test the model with custom game reviews
+5. **🏆 Benchmarks** - Compare RoBERTa against baseline models
+6. **⚔️ Compare Games** - Side-by-side game sentiment comparison
+7. **🔮 Predictor** - Predict sentiment based on game features
+8. **📰 Explorer** - Search and filter reviews database
 
 ---
 
@@ -161,26 +169,63 @@ The application uses sensible defaults but can be customized:
 
 ### Tab Navigation
 
-#### Tab 1: Analytics Dashboard
+#### Tab 1: 📊 Analytics Dashboard
 - View sentiment distribution pie chart
 - Explore temporal trends with area charts
 - Compare games on the leaderboard (when viewing "All Games")
 - Analyze review length patterns
 
-#### Tab 2: Topic Clouds
+#### Tab 2: ☁️ Topic Clouds
 - Toggle between Satisfied/Dissatisfied perspectives
 - Automatically filters common gaming terms
 - Uses Viridis (positive) and Magma (negative) color schemes
 
-#### Tab 3: Live AI Lab
+#### Tab 3: 🔍 Developer Insights
+- **Executive Summary** - 4 issue category cards (Technical, Gameplay, Content, Monetization)
+- **Priority Matrix** - Interactive scatter plot with Impact vs Frequency
+- **AI Recommendations** - High/Medium priority actions and opportunities
+- **Competitive Benchmarking** - Compare selected game vs all-games average
+- **Issue Trend Analysis** - Track how issues change over time
+- **Voice of the Player** - Representative quotes with sentiment badges
+
+#### Tab 4: 🤖 Live AI Lab
 - Enter custom review text
 - Click "Analyze Sentiment" to get predictions
 - View confidence scores with progress bar
+- Loading animations during inference
 
-#### Tab 4: Model Benchmarks
+#### Tab 5: 🏆 Model Benchmarks
 - Compare RoBERTa against baseline models
 - Interactive bar chart with accuracy metrics
 - Full metrics table available
+
+#### Tab 6: ⚔️ Game Comparison Lab
+- Select two games for side-by-side comparison
+- Compare sentiment distribution pie charts
+- Issue category comparison bar chart
+- Winner summary with difference calculation
+
+#### Tab 7: 🔮 Sentiment Predictor
+- Input game features (multiplayer, MTX, early access, DLC)
+- Select genre and price range
+- Get predicted sentiment breakdown (Satisfied/Neutral/Dissatisfied)
+- View risk factors and warnings
+
+#### Tab 8: 📰 Review Explorer
+- Search reviews by keyword
+- Filter by sentiment, game, and sort order
+- Paginated review display (10 per page)
+- Export filtered results to CSV
+
+---
+
+## 🎨 UI Features
+
+- **Steam-inspired dark theme** with blue gradient background
+- **Smooth loading animations** with shimmer skeleton placeholders
+- **Fade-in transitions** on cards with staggered delays
+- **Loading spinners** during data processing
+- **Responsive layout** for different screen sizes
 
 ---
 
