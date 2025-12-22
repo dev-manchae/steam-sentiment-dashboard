@@ -1,3 +1,11 @@
+# Virtual environment
+venv/
+.venv/
+env/
+.env/
+ENV/
+
+# Project specific
 model/
 data/steam_reviews.csv
 __pycache__/

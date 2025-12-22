@@ -195,9 +195,3 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 This project is open source and available under the MIT License.
 
 ---
-
-<div align="center">
-
-**Built with ❤️ using Streamlit and Hugging Face Transformers**
-
-</div>
