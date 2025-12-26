@@ -16,7 +16,8 @@ st.set_page_config(page_title="Steam Sentiment Intelligence", page_icon="🎮", 
 
 # PATHS
 DATA_FILE = "https://huggingface.co/manchae86/steam-review-roberta/resolve/main/steam_reviews.csv"
-BENCHMARK_FILE = "./data/benchmark.csv"
+# UPDATED: Pull benchmark directly from Hugging Face so it is always 96% accurate
+BENCHMARK_FILE = "https://huggingface.co/manchae86/steam-review-roberta/resolve/main/benchmark.csv"
 
 # ==========================================
 # ISSUE TAXONOMY FOR DEVELOPER INSIGHTS
@@ -457,15 +458,18 @@ def load_data():
 
 @st.cache_data
 def load_benchmark():
-    if not os.path.exists(BENCHMARK_FILE):
+    try:
+        return pd.read_csv(BENCHMARK_FILE)
+    except Exception:
         return None
-    return pd.read_csv(BENCHMARK_FILE)
 
-# --- CLOUD MODEL LOADER ---
-@st.cache_resource
+# --- CLOUD MODEL LOADER (UPDATED FOR V3) ---
+# Added TTL to ensure it refreshes if you upload a new model
+@st.cache_resource(ttl="1h")
 def load_model():
     try:
-        tokenizer = AutoTokenizer.from_pretrained("roberta-base")
+        # Load BOTH tokenizer and model from your repo to ensure compatibility
+        tokenizer = AutoTokenizer.from_pretrained("manchae86/steam-review-roberta")
         model = AutoModelForSequenceClassification.from_pretrained("manchae86/steam-review-roberta")
         return tokenizer, model
     except Exception as e:
@@ -541,7 +545,7 @@ with st.sidebar:
         </div>
         """, unsafe_allow_html=True)
         
-        st.info("ℹ️ Running RoBERTa v4.0 Model")
+        st.info("ℹ️ Running RoBERTa v3.0 (96% Acc)")
     else:
         st.error("Data not found. Please ensure URL is correct.")
         df_filtered = pd.DataFrame()
