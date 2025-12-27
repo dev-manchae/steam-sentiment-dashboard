@@ -14,9 +14,8 @@ import re
 # ==========================================
 st.set_page_config(page_title="Steam Sentiment Intelligence", page_icon="🎮", layout="wide")
 
-# PATHS
+# PATHS - Pointing to your Hugging Face Repo
 DATA_FILE = "https://huggingface.co/manchae86/steam-review-roberta/resolve/main/steam_reviews.csv"
-# UPDATED: Pull benchmark directly from Hugging Face so it is always 96% accurate
 BENCHMARK_FILE = "https://huggingface.co/manchae86/steam-review-roberta/resolve/main/benchmark.csv"
 
 # ==========================================
@@ -558,7 +557,8 @@ with st.sidebar:
 st.markdown('<div class="main-title">🎮 Steam Sentiment Intelligence</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="sub-header">Deep learning analysis for <b style="color: #66c0f4;">{selected_game}</b> using RoBERTa transformers.</div>', unsafe_allow_html=True)
 
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+# ADDED TAB 9
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
     "📊 Dashboard", 
     "☁️ Topic Clouds", 
     "🔍 Dev Insights", 
@@ -566,7 +566,8 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "🏆 Benchmarks",
     "⚔️ Compare Games",
     "🔮 Predictor",
-    "📰 Explorer"
+    "📰 Explorer",
+    "🎓 Model Internals"
 ])
 
 COLOR_MAP = {
@@ -1313,3 +1314,112 @@ with tab8:
             )
     else:
         st.warning("No data available.")
+
+# --- TAB 9: MODEL INTERNALS (INTERACTIVE) ---
+with tab9:
+    st.subheader("🎓 Model Internals & Methodology")
+    st.markdown("*Transparency report: Visualizing the training dynamics of RoBERTa V3.*")
+    
+    # Paths to your CSVs on Hugging Face
+    URL_LOSS = "https://huggingface.co/manchae86/steam-review-roberta/resolve/main/roberta_training_loss.csv"
+    URL_CM = "https://huggingface.co/manchae86/steam-review-roberta/resolve/main/roberta_confusion_matrix_data.csv"
+    
+    col1, col2 = st.columns(2)
+    
+    # 1. INTERACTIVE TRAINING LOSS CURVE
+    with col1:
+        st.markdown("### 📉 Learning Curve")
+        try:
+            df_loss = pd.read_csv(URL_LOSS)
+            
+            # Create interactive line chart
+            fig_loss = px.line(
+                df_loss, 
+                x="step", 
+                y="loss", 
+                title="Training Loss Over Time (Lower is Better)",
+                markers=False,
+                color_discrete_sequence=["#66c0f4"] # Steam Blue
+            )
+            
+            fig_loss.update_layout(
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(color="white"),
+                xaxis_title="Training Steps",
+                yaxis_title="Error Rate (Loss)",
+                hovermode="x unified"
+            )
+            # Add a 'smoothed' trend line if many points exist
+            if len(df_loss) > 10:
+                fig_loss.update_traces(line=dict(width=2))
+                
+            st.plotly_chart(fig_loss, use_container_width=True)
+            st.caption("The downward trend confirms the model successfully learned patterns without overfitting.")
+            
+        except Exception:
+            st.warning("⚠️ Could not load training data. Please ensure 'roberta_training_loss.csv' is in your repo.")
+
+    # 2. INTERACTIVE CONFUSION MATRIX
+    with col2:
+        st.markdown("### 🎯 Confusion Matrix")
+        try:
+            df_cm = pd.read_csv(URL_CM, index_col=0)
+            
+            # Create interactive heatmap
+            fig_cm = px.imshow(
+                df_cm, 
+                text_auto=True, 
+                aspect="auto",
+                color_continuous_scale="Blues",
+                title="Prediction Accuracy Heatmap"
+            )
+            
+            fig_cm.update_layout(
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(color="white"),
+                xaxis_title="Predicted Sentiment",
+                yaxis_title="Actual Sentiment"
+            )
+            # Hide the color bar to keep it clean
+            fig_cm.update_coloraxes(showscale=False)
+            
+            st.plotly_chart(fig_cm, use_container_width=True)
+            st.caption("Darker squares represent correct predictions. High numbers on the diagonal = High Accuracy.")
+            
+        except Exception:
+            st.warning("⚠️ Could not load confusion matrix. Please ensure 'roberta_confusion_matrix_data.csv' is in your repo.")
+
+    st.divider()
+    
+    # 3. HYPERPARAMETERS (Static info is fine here)
+    st.markdown("### ⚙️ RoBERTa V3 Configuration")
+    params_col1, params_col2, params_col3 = st.columns(3)
+    
+    with params_col1:
+        st.markdown("""
+        <div class="metric-card">
+            <div style="color: #b0b3b8;">Base Architecture</div>
+            <div style="font-size: 20px; font-weight: 700;">RoBERTa-Base</div>
+            <div style="font-size: 12px; color: #66c0f4;">12-Layer Transformer</div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    with params_col2:
+        st.markdown("""
+        <div class="metric-card">
+            <div style="color: #b0b3b8;">Optimizer</div>
+            <div style="font-size: 20px; font-weight: 700;">AdamW</div>
+            <div style="font-size: 12px; color: #66c0f4;">Learning Rate: 2e-5</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with params_col3:
+        st.markdown("""
+        <div class="metric-card">
+            <div style="color: #b0b3b8;">Training Scale</div>
+            <div style="font-size: 20px; font-weight: 700;">~57k Reviews</div>
+            <div style="font-size: 12px; color: #66c0f4;">3 Epochs / 17k Steps</div>
+        </div>
+        """, unsafe_allow_html=True)
