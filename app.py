@@ -666,10 +666,9 @@ with tab1:
                 category_orders={'app_name': sorted_games_order}
             )
             
-            # FIXED: Removed 'textfont_color="auto"' which caused the crash. 
-            # We now rely on 'textposition="auto"' for smart placement, 
-            # and if contrast is needed, we can set textfont_color="white" manually for dark bars
-            fig_bar.update_traces(textposition="auto", textfont_color="white")
+            # FIXED: Manual Loop to apply specific text colors per trace (Neutral -> Black, others -> White)
+            fig_bar.for_each_trace(lambda t: t.update(textfont_color='black') if t.name == 'Neutral' else t.update(textfont_color='white'))
+            fig_bar.update_traces(textposition="auto")
             
             fig_bar.update_layout(
                 barmode='stack', xaxis_tickformat='.0%', yaxis_title="", xaxis_title="Percentage of Reviews",
@@ -684,10 +683,9 @@ with tab1:
             df_filtered, x='Sentiment Label', y='length', color='Sentiment Label',
             color_discrete_map=COLOR_MAP, title="Do angry gamers write longer reviews?"
         )
-        fig_box.update_layout(
-            margin=dict(t=50, b=0, l=0, r=0), # Custom margin for title
-            **COMMON_LAYOUT
-        )
+        fig_box.update_layout(**COMMON_LAYOUT)
+        fig_box.update_layout(margin=dict(t=50, b=0, l=0, r=0))
+        
         st.plotly_chart(fig_box, use_container_width=True)
     else:
         st.warning("No data available.")
@@ -714,14 +712,11 @@ with tab2:
                 text_corpus = " ".join(subset['clean_text'].astype(str).tolist())
                 text_corpus = re.sub(r'\bd\d+\b', '', text_corpus)
                 
-                # UPDATED: Transparent background for cloud
-                wc = WordCloud(width=800, height=500, background_color=None, mode="RGBA", colormap=cloud_colormap, collocations=False).generate(text_corpus)
+                # UPDATED: White background for visibility as requested
+                wc = WordCloud(width=800, height=500, background_color='white', mode="RGB", colormap=cloud_colormap, collocations=False).generate(text_corpus)
                 
                 fig, ax = plt.subplots(figsize=(10, 6))
-                # UPDATED: Make Matplotlib figure transparent
-                fig.patch.set_facecolor('none')
-                ax.patch.set_facecolor('none')
-                
+                # Remove transparent overrides so white box shows
                 ax.imshow(wc, interpolation='bilinear')
                 ax.axis("off")
                 st.pyplot(fig)
@@ -994,13 +989,25 @@ with tab5:
     st.subheader("🏆 Model Performance Leaderboard")
     df_bench = load_benchmark()
     if df_bench is not None:
+        # Sort so highest accuracy is at the top
+        df_bench = df_bench.sort_values("Accuracy", ascending=True)
+        
         fig = px.bar(
-            df_bench.sort_values("Accuracy", ascending=True), 
+            df_bench, 
             x="Accuracy", y="Model", orientation='h', text_auto='.2%',
             color="Accuracy", color_continuous_scale="Viridis"
         )
-        # FIXED: Removed 'auto', force white for leaderboard
-        fig.update_traces(textfont_color="white", textposition="auto")
+        
+        # UPDATED: Loop through data to check if model is RoBERTa/DistilBERT and set Black text
+        # 'fig.data[0]' contains the bar data. We construct a list of colors.
+        text_colors = []
+        for model_name in df_bench['Model']:
+            if "RoBERTa" in model_name or "DistilBERT" in model_name:
+                text_colors.append("black")
+            else:
+                text_colors.append("white")
+        
+        fig.update_traces(textfont=dict(color=text_colors))
         
         fig.update_layout(
             **COMMON_LAYOUT # Apply standardized style
@@ -1036,8 +1043,8 @@ with tab6:
             # UPDATED: Use consistent colors from Tab 1
             pie_colors = [COLOR_MAP['Satisfied'], COLOR_MAP['Neutral'], COLOR_MAP['Dissatisfied']]
             
-            # Create helper for consistent text color in small pie charts
-            # Satisfied (Teal) -> White, Neutral (Yellow) -> Black, Dissatisfied (Red) -> White
+            # UPDATED: Specific text color list (Satisfied=White, Neutral=Black, Dissatisfied=White)
+            # Note: This list maps to the order of 'names' in px.pie below
             pie_text_colors = ["white", "#171a21", "white"]
 
             with comp_cols[0]:
@@ -1052,8 +1059,8 @@ with tab6:
                     color_discrete_sequence=pie_colors,
                     hole=0.5
                 )
-                # UPDATED: Apply manual text colors
-                fig_a.update_traces(textfont=dict(color=pie_text_colors))
+                # UPDATED: Add sort=False so colors map correctly to names, not size
+                fig_a.update_traces(sort=False, textfont=dict(color=pie_text_colors))
                 fig_a.update_layout(
                     showlegend=False,
                     **COMMON_LAYOUT # Apply standardized style
@@ -1073,8 +1080,8 @@ with tab6:
                     color_discrete_sequence=pie_colors,
                     hole=0.5
                 )
-                # UPDATED: Apply manual text colors
-                fig_b.update_traces(textfont=dict(color=pie_text_colors))
+                # UPDATED: Add sort=False so colors map correctly to names, not size
+                fig_b.update_traces(sort=False, textfont=dict(color=pie_text_colors))
                 fig_b.update_layout(
                     showlegend=False,
                     **COMMON_LAYOUT # Apply standardized style
@@ -1381,22 +1388,48 @@ with tab9:
         try:
             df_cm = pd.read_csv(URL_CM, index_col=0)
             
-            # Create interactive heatmap
+            # Create interactive heatmap WITHOUT auto-text
             fig_cm = px.imshow(
                 df_cm, 
-                text_auto=True, 
+                text_auto=False, # Disable auto text to use custom annotations
                 aspect="auto",
                 color_continuous_scale="Blues",
                 title="Prediction Accuracy Heatmap"
             )
             
-            # UPDATED: Force white text inside the squares for dark blue heatmap
-            fig_cm.update_traces(textfont={'color': 'white'})
-            
+            # Build custom annotations to force specific row/col colors
+            annotations = []
+            for i in range(len(df_cm.index)):
+                for j in range(len(df_cm.columns)):
+                    val = df_cm.iloc[i, j]
+                    # Default
+                    text_c = "black" 
+                    
+                    # LOGIC:
+                    # Row 0 (Negative): All Black
+                    # Row 1 (Neutral): All Black
+                    # Row 2 (Positive):
+                    #   - Col 0 (Pred Neg) -> Black
+                    #   - Col 1 (Pred Neu) -> Black
+                    #   - Col 2 (Pred Pos) -> White (Diagonal)
+                    
+                    if i == 0: text_c = "black"
+                    elif i == 1: text_c = "black"
+                    elif i == 2:
+                        if j == 2: text_c = "white" # Diagonal (True Positive)
+                        else: text_c = "black"      # Off-diagonal (Mistakes)
+                    
+                    annotations.append(dict(
+                        x=j, y=i, text=str(val),
+                        showarrow=False,
+                        font=dict(color=text_c)
+                    ))
+
             fig_cm.update_layout(
                 xaxis_title="Predicted Sentiment",
                 yaxis_title="Actual Sentiment",
-                **COMMON_LAYOUT # Apply standardized style
+                annotations=annotations, # Apply custom text colors
+                **COMMON_LAYOUT 
             )
             # Hide the color bar to keep it clean
             fig_cm.update_coloraxes(showscale=False)
