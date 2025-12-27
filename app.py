@@ -25,7 +25,7 @@ ISSUE_TAXONOMY = {
     "🖥️ Technical": {
         "keywords": ["lag", "crash", "bug", "fps", "optimization", "server", "freeze", "loading", 
                      "performance", "stuttering", "glitch", "error", "disconnect", "memory", "frame"],
-        "color": "#FF6B6B",
+        "color": "#FF6B6B", # Light Red
         "recommendations": {
             "high": "Consider infrastructure scaling, code profiling, or CDN optimization",
             "medium": "Monitor error logs and prioritize critical fixes in next patch",
@@ -35,7 +35,7 @@ ISSUE_TAXONOMY = {
     "🎮 Gameplay": {
         "keywords": ["balance", "difficulty", "controls", "mechanics", "combat", "boring", 
                      "repetitive", "grind", "unfair", "broken", "nerf", "buff", "skill", "enemy"],
-        "color": "#4ECDC4",
+        "color": "#4ECDC4", # Teal
         "recommendations": {
             "high": "Conduct gameplay testing sessions and adjust difficulty curves",
             "medium": "Review player progression data and rebalance mechanics",
@@ -45,7 +45,7 @@ ISSUE_TAXONOMY = {
     "📖 Content": {
         "keywords": ["story", "dlc", "mission", "quest", "content", "short", "ending", 
                      "character", "update", "more", "expansion", "level", "world", "lore"],
-        "color": "#45B7D1",
+        "color": "#45B7D1", # Sky Blue
         "recommendations": {
             "high": "Prioritize content expansion in roadmap - strong revenue potential",
             "medium": "Plan seasonal content updates to maintain engagement",
@@ -55,7 +55,7 @@ ISSUE_TAXONOMY = {
     "💰 Monetization": {
         "keywords": ["price", "expensive", "cheap", "worth", "money", "microtransaction", 
                      "p2w", "pay", "cost", "value", "purchase", "sale", "discount"],
-        "color": "#FFD93D",
+        "color": "#FFD93D", # Bright Yellow
         "recommendations": {
             "high": "Review pricing strategy - consider regional pricing or bundles",
             "medium": "Improve value perception through better communication",
@@ -225,6 +225,15 @@ def get_highlighted_quotes(df, category, n=5):
             "color": "#FF5252" if sentiment == 0 else ("#FFB74D" if sentiment == 1 else "#4DB6AC")
         })
     return quotes
+
+# --- HELPER: GET TEXT COLOR FOR SEGMENT ---
+def get_text_color(sentiment_or_category):
+    """Returns 'black' for bright backgrounds (Yellow/Orange) and 'white' for dark ones."""
+    # Bright colors that need black text
+    BRIGHT_SEGMENTS = ["Neutral", "Monetization", "💰 Monetization"]
+    if sentiment_or_category in BRIGHT_SEGMENTS:
+        return "#171a21" # Dark Charcoal (matches app bg)
+    return "white"
 
 # ==========================================
 # 1. CUSTOM CSS (BACKGROUND & UI)
@@ -599,12 +608,17 @@ with tab1:
             pie_data = df_filtered['Sentiment Label'].value_counts().reset_index()
             pie_data.columns = ['Sentiment', 'Count']
             
+            # UPDATED: Generate specific text colors for this pie chart
+            pie_data['text_color'] = pie_data['Sentiment'].apply(get_text_color)
+            
             fig_pie = px.pie(
                 pie_data, 
                 names='Sentiment', values='Count', color='Sentiment',
                 color_discrete_map=COLOR_MAP, hole=0.6
             )
-            fig_pie.update_traces(textposition='inside', textinfo='percent+label')
+            
+            # UPDATED: Apply the text colors from our new column
+            fig_pie.update_traces(textposition='inside', textinfo='percent+label', textfont=dict(color=pie_data['text_color']))
             
             fig_pie.update_layout(
                 showlegend=False, 
@@ -629,6 +643,8 @@ with tab1:
                     xaxis_title="", yaxis_title="Number of Reviews", 
                     **COMMON_LAYOUT
                 )
+                # Ensure labels on hover are white/readable if needed, but standard usually works.
+                # Here we mainly care about axes being white, which COMMON_LAYOUT handles.
                 st.plotly_chart(fig_area, use_container_width=True)
             else:
                 st.warning("⚠️ No timestamp data found to build timeline.")
@@ -651,6 +667,9 @@ with tab1:
                 orientation='h', color_discrete_map=COLOR_MAP, text_auto='.0%',
                 category_orders={'app_name': sorted_games_order}
             )
+            # UPDATED: Use 'auto' so neutral yellow bars get black text, others get white
+            fig_bar.update_traces(textfont_color="auto", textposition="auto")
+            
             fig_bar.update_layout(
                 barmode='stack', xaxis_tickformat='.0%', yaxis_title="", xaxis_title="Percentage of Reviews",
                 **COMMON_LAYOUT
@@ -666,10 +685,7 @@ with tab1:
         )
         fig_box.update_layout(
             margin=dict(t=50, b=0, l=0, r=0), # Custom margin for title
-            paper_bgcolor="rgba(0,0,0,0)", 
-            plot_bgcolor="rgba(0,0,0,0)", 
-            font=dict(color="white"),
-            modebar=dict(bgcolor='rgba(0,0,0,0)', color='white')
+            **COMMON_LAYOUT
         )
         st.plotly_chart(fig_box, use_container_width=True)
     else:
@@ -842,6 +858,9 @@ with tab3:
                     color_discrete_sequence=["#66c0f4", "#4c4c4c"],
                     text_auto='.1f'
                 )
+                # UPDATED: Use 'auto' text color so yellow bars are readable
+                fig_bench.update_traces(textfont_color="auto", textposition="auto")
+                
                 fig_bench.update_layout(
                     xaxis_title="",
                     yaxis_title="Issue Mention Rate (%)",
@@ -979,6 +998,9 @@ with tab5:
             x="Accuracy", y="Model", orientation='h', text_auto='.2%',
             color="Accuracy", color_continuous_scale="Viridis"
         )
+        # UPDATED: Use 'auto' so bright bars get black text
+        fig.update_traces(textfont_color="auto", textposition="auto")
+        
         fig.update_layout(
             **COMMON_LAYOUT # Apply standardized style
         )
@@ -1013,6 +1035,10 @@ with tab6:
             # UPDATED: Use consistent colors from Tab 1
             pie_colors = [COLOR_MAP['Satisfied'], COLOR_MAP['Neutral'], COLOR_MAP['Dissatisfied']]
             
+            # Create helper for consistent text color in small pie charts
+            # Satisfied (Teal) -> White, Neutral (Yellow) -> Black, Dissatisfied (Red) -> White
+            pie_text_colors = ["white", "#171a21", "white"]
+
             with comp_cols[0]:
                 st.markdown(f"**{game_a}**")
                 sat_a = (df_a['sentiment'] == 2).mean() * 100
@@ -1025,6 +1051,8 @@ with tab6:
                     color_discrete_sequence=pie_colors,
                     hole=0.5
                 )
+                # UPDATED: Apply manual text colors
+                fig_a.update_traces(textfont=dict(color=pie_text_colors))
                 fig_a.update_layout(
                     showlegend=False,
                     **COMMON_LAYOUT # Apply standardized style
@@ -1044,6 +1072,8 @@ with tab6:
                     color_discrete_sequence=pie_colors,
                     hole=0.5
                 )
+                # UPDATED: Apply manual text colors
+                fig_b.update_traces(textfont=dict(color=pie_text_colors))
                 fig_b.update_layout(
                     showlegend=False,
                     **COMMON_LAYOUT # Apply standardized style
@@ -1076,6 +1106,9 @@ with tab6:
                 barmode="group",
                 color_discrete_sequence=["#E07B53", "#6B9DD8"]
             )
+            # UPDATED: Force white text (darker bars usually)
+            fig_compare.update_traces(textfont_color="white")
+            
             fig_compare.update_layout(
                 yaxis_title="Issue Mention Rate (%)",
                 **COMMON_LAYOUT # Apply standardized style
@@ -1355,6 +1388,9 @@ with tab9:
                 color_continuous_scale="Blues",
                 title="Prediction Accuracy Heatmap"
             )
+            
+            # UPDATED: Force white text inside the squares for dark blue heatmap
+            fig_cm.update_traces(textfont={'color': 'white'})
             
             fig_cm.update_layout(
                 xaxis_title="Predicted Sentiment",
