@@ -463,7 +463,6 @@ def load_benchmark():
         return None
 
 # --- CLOUD MODEL LOADER (UPDATED FOR V3) ---
-# Added TTL to ensure it refreshes if you upload a new model
 @st.cache_resource(ttl="1h")
 def load_model():
     try:
@@ -557,7 +556,6 @@ with st.sidebar:
 st.markdown('<div class="main-title">🎮 Steam Sentiment Intelligence</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="sub-header">Deep learning analysis for <b style="color: #66c0f4;">{selected_game}</b> using RoBERTa transformers.</div>', unsafe_allow_html=True)
 
-# ADDED TAB 9
 tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
     "📊 Dashboard", 
     "☁️ Topic Clouds", 
@@ -575,6 +573,15 @@ COLOR_MAP = {
     "Neutral": "#FFB74D",
     "Dissatisfied": "#FF5252"
 }
+
+# Shared Layout for all Plotly Charts (Standardizes Design)
+COMMON_LAYOUT = dict(
+    paper_bgcolor="rgba(0,0,0,0)", 
+    plot_bgcolor="rgba(0,0,0,0)", 
+    font=dict(color="white"),
+    margin=dict(t=30, b=0, l=0, r=0),
+    modebar=dict(bgcolor='rgba(0,0,0,0)', color='white') # Transparent toolbar with white icons
+)
 
 # ==========================================
 # 5. TAB CONTENT
@@ -601,10 +608,7 @@ with tab1:
             
             fig_pie.update_layout(
                 showlegend=False, 
-                margin=dict(t=30, b=0, l=0, r=0),
-                paper_bgcolor="rgba(0,0,0,0)", 
-                plot_bgcolor="rgba(0,0,0,0)",
-                modebar=dict(bgcolor='rgba(0,0,0,0)', color='white') 
+                **COMMON_LAYOUT # Apply standardized style
             )
             
             display_name = selected_game.replace("_", " ")
@@ -623,11 +627,7 @@ with tab1:
                 )
                 fig_area.update_layout(
                     xaxis_title="", yaxis_title="Number of Reviews", 
-                    margin=dict(t=30, b=0, l=0, r=0),
-                    paper_bgcolor="rgba(0,0,0,0)", 
-                    plot_bgcolor="rgba(0,0,0,0)", 
-                    font=dict(color="white"),
-                    modebar=dict(bgcolor='rgba(0,0,0,0)', color='white')
+                    **COMMON_LAYOUT
                 )
                 st.plotly_chart(fig_area, use_container_width=True)
             else:
@@ -653,11 +653,7 @@ with tab1:
             )
             fig_bar.update_layout(
                 barmode='stack', xaxis_tickformat='.0%', yaxis_title="", xaxis_title="Percentage of Reviews",
-                margin=dict(t=30, b=0, l=0, r=0),
-                paper_bgcolor="rgba(0,0,0,0)", 
-                plot_bgcolor="rgba(0,0,0,0)", 
-                font=dict(color="white"),
-                modebar=dict(bgcolor='rgba(0,0,0,0)', color='white')
+                **COMMON_LAYOUT
             )
             st.plotly_chart(fig_bar, use_container_width=True)
             st.divider()
@@ -669,7 +665,7 @@ with tab1:
             color_discrete_map=COLOR_MAP, title="Do angry gamers write longer reviews?"
         )
         fig_box.update_layout(
-            margin=dict(t=50, b=0, l=0, r=0),
+            margin=dict(t=50, b=0, l=0, r=0), # Custom margin for title
             paper_bgcolor="rgba(0,0,0,0)", 
             plot_bgcolor="rgba(0,0,0,0)", 
             font=dict(color="white"),
@@ -701,8 +697,14 @@ with tab2:
                 text_corpus = " ".join(subset['clean_text'].astype(str).tolist())
                 text_corpus = re.sub(r'\bd\d+\b', '', text_corpus)
                 
-                wc = WordCloud(width=800, height=500, background_color='white', colormap=cloud_colormap, collocations=False).generate(text_corpus)
+                # UPDATED: Transparent background for cloud
+                wc = WordCloud(width=800, height=500, background_color=None, mode="RGBA", colormap=cloud_colormap, collocations=False).generate(text_corpus)
+                
                 fig, ax = plt.subplots(figsize=(10, 6))
+                # UPDATED: Make Matplotlib figure transparent
+                fig.patch.set_facecolor('none')
+                ax.patch.set_facecolor('none')
+                
                 ax.imshow(wc, interpolation='bilinear')
                 ax.axis("off")
                 st.pyplot(fig)
@@ -756,7 +758,6 @@ with tab3:
             
             # Add quadrant labels
             max_freq = matrix_df['Frequency'].max() if matrix_df['Frequency'].max() > 0 else 100
-            max_impact = 100
             
             fig_matrix.add_annotation(x=max_freq*0.75, y=75, text="🔴 CRITICAL", showarrow=False, font=dict(size=14, color="#FF6B6B"))
             fig_matrix.add_annotation(x=max_freq*0.25, y=75, text="⚠️ MONITOR", showarrow=False, font=dict(size=14, color="#FFD93D"))
@@ -766,13 +767,9 @@ with tab3:
             fig_matrix.update_layout(
                 xaxis_title="Frequency (Number of Mentions)",
                 yaxis_title="Impact (% Negative Sentiment)",
-                margin=dict(t=30, b=0, l=0, r=0),
-                paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(0,0,0,0)",
-                font=dict(color="white"),
-                modebar=dict(bgcolor='rgba(0,0,0,0)', color='white'),
                 showlegend=True,
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                **COMMON_LAYOUT # Apply standardized style
             )
             
             # Add quadrant lines
@@ -848,12 +845,8 @@ with tab3:
                 fig_bench.update_layout(
                     xaxis_title="",
                     yaxis_title="Issue Mention Rate (%)",
-                    margin=dict(t=30, b=0, l=0, r=0),
-                    paper_bgcolor="rgba(0,0,0,0)",
-                    plot_bgcolor="rgba(0,0,0,0)",
-                    font=dict(color="white"),
-                    modebar=dict(bgcolor='rgba(0,0,0,0)', color='white'),
-                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                    **COMMON_LAYOUT # Apply standardized style
                 )
                 st.plotly_chart(fig_bench, use_container_width=True)
                 
@@ -889,11 +882,7 @@ with tab3:
             fig_trend.update_layout(
                 xaxis_title="",
                 yaxis_title="Issue Rate (%)",
-                margin=dict(t=30, b=0, l=0, r=0),
-                paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(0,0,0,0)",
-                font=dict(color="white"),
-                modebar=dict(bgcolor='rgba(0,0,0,0)', color='white')
+                **COMMON_LAYOUT # Apply standardized style
             )
             st.plotly_chart(fig_trend, use_container_width=True)
             
@@ -991,11 +980,7 @@ with tab5:
             color="Accuracy", color_continuous_scale="Viridis"
         )
         fig.update_layout(
-            margin=dict(t=30, b=0, l=0, r=0),
-            paper_bgcolor="rgba(0,0,0,0)", 
-            plot_bgcolor="rgba(0,0,0,0)", 
-            font=dict(color="white"),
-            modebar=dict(bgcolor='rgba(0,0,0,0)', color='white')
+            **COMMON_LAYOUT # Apply standardized style
         )
         st.plotly_chart(fig, use_container_width=True)
         st.dataframe(df_bench)
@@ -1025,6 +1010,9 @@ with tab6:
             
             comp_cols = st.columns(2)
             
+            # UPDATED: Use consistent colors from Tab 1
+            pie_colors = [COLOR_MAP['Satisfied'], COLOR_MAP['Neutral'], COLOR_MAP['Dissatisfied']]
+            
             with comp_cols[0]:
                 st.markdown(f"**{game_a}**")
                 sat_a = (df_a['sentiment'] == 2).mean() * 100
@@ -1034,13 +1022,12 @@ with tab6:
                 fig_a = px.pie(
                     values=[sat_a, neu_a, dis_a],
                     names=['Satisfied', 'Neutral', 'Dissatisfied'],
-                    color_discrete_sequence=['#5DBF82', '#F5E85C', '#E07B53'],
+                    color_discrete_sequence=pie_colors,
                     hole=0.5
                 )
                 fig_a.update_layout(
                     showlegend=False,
-                    margin=dict(t=0, b=0, l=0, r=0),
-                    paper_bgcolor="rgba(0,0,0,0)"
+                    **COMMON_LAYOUT # Apply standardized style
                 )
                 st.plotly_chart(fig_a, use_container_width=True)
                 st.metric("Satisfaction Rate", f"{sat_a:.1f}%", f"{len(df_a):,} reviews")
@@ -1054,13 +1041,12 @@ with tab6:
                 fig_b = px.pie(
                     values=[sat_b, neu_b, dis_b],
                     names=['Satisfied', 'Neutral', 'Dissatisfied'],
-                    color_discrete_sequence=['#5DBF82', '#F5E85C', '#E07B53'],
+                    color_discrete_sequence=pie_colors,
                     hole=0.5
                 )
                 fig_b.update_layout(
                     showlegend=False,
-                    margin=dict(t=0, b=0, l=0, r=0),
-                    paper_bgcolor="rgba(0,0,0,0)"
+                    **COMMON_LAYOUT # Apply standardized style
                 )
                 st.plotly_chart(fig_b, use_container_width=True)
                 st.metric("Satisfaction Rate", f"{sat_b:.1f}%", f"{len(df_b):,} reviews")
@@ -1091,11 +1077,8 @@ with tab6:
                 color_discrete_sequence=["#E07B53", "#6B9DD8"]
             )
             fig_compare.update_layout(
-                margin=dict(t=30, b=0, l=0, r=0),
-                paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(0,0,0,0)",
-                font=dict(color="white"),
-                yaxis_title="Issue Mention Rate (%)"
+                yaxis_title="Issue Mention Rate (%)",
+                **COMMON_LAYOUT # Apply standardized style
             )
             st.plotly_chart(fig_compare, use_container_width=True)
             
@@ -1343,12 +1326,10 @@ with tab9:
             )
             
             fig_loss.update_layout(
-                paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(0,0,0,0)",
-                font=dict(color="white"),
                 xaxis_title="Training Steps",
                 yaxis_title="Error Rate (Loss)",
-                hovermode="x unified"
+                hovermode="x unified",
+                **COMMON_LAYOUT # Apply standardized style
             )
             # Add a 'smoothed' trend line if many points exist
             if len(df_loss) > 10:
@@ -1376,11 +1357,9 @@ with tab9:
             )
             
             fig_cm.update_layout(
-                paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(0,0,0,0)",
-                font=dict(color="white"),
                 xaxis_title="Predicted Sentiment",
-                yaxis_title="Actual Sentiment"
+                yaxis_title="Actual Sentiment",
+                **COMMON_LAYOUT # Apply standardized style
             )
             # Hide the color bar to keep it clean
             fig_cm.update_coloraxes(showscale=False)
