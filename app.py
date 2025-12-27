@@ -643,8 +643,6 @@ with tab1:
                     xaxis_title="", yaxis_title="Number of Reviews", 
                     **COMMON_LAYOUT
                 )
-                # Ensure labels on hover are white/readable if needed, but standard usually works.
-                # Here we mainly care about axes being white, which COMMON_LAYOUT handles.
                 st.plotly_chart(fig_area, use_container_width=True)
             else:
                 st.warning("⚠️ No timestamp data found to build timeline.")
@@ -667,8 +665,11 @@ with tab1:
                 orientation='h', color_discrete_map=COLOR_MAP, text_auto='.0%',
                 category_orders={'app_name': sorted_games_order}
             )
-            # UPDATED: Use 'auto' so neutral yellow bars get black text, others get white
-            fig_bar.update_traces(textfont_color="auto", textposition="auto")
+            
+            # FIXED: Removed 'textfont_color="auto"' which caused the crash. 
+            # We now rely on 'textposition="auto"' for smart placement, 
+            # and if contrast is needed, we can set textfont_color="white" manually for dark bars
+            fig_bar.update_traces(textposition="auto", textfont_color="white")
             
             fig_bar.update_layout(
                 barmode='stack', xaxis_tickformat='.0%', yaxis_title="", xaxis_title="Percentage of Reviews",
@@ -858,8 +859,8 @@ with tab3:
                     color_discrete_sequence=["#66c0f4", "#4c4c4c"],
                     text_auto='.1f'
                 )
-                # UPDATED: Use 'auto' text color so yellow bars are readable
-                fig_bench.update_traces(textfont_color="auto", textposition="auto")
+                # FIXED: Removed 'auto' here as well, kept white for readability on dark bars
+                fig_bench.update_traces(textfont_color="white", textposition="auto")
                 
                 fig_bench.update_layout(
                     xaxis_title="",
@@ -998,8 +999,8 @@ with tab5:
             x="Accuracy", y="Model", orientation='h', text_auto='.2%',
             color="Accuracy", color_continuous_scale="Viridis"
         )
-        # UPDATED: Use 'auto' so bright bars get black text
-        fig.update_traces(textfont_color="auto", textposition="auto")
+        # FIXED: Removed 'auto', force white for leaderboard
+        fig.update_traces(textfont_color="white", textposition="auto")
         
         fig.update_layout(
             **COMMON_LAYOUT # Apply standardized style
